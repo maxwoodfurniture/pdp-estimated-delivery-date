@@ -1,0 +1,502 @@
+{% comment %}
+  Estimated Delivery Date Block
+  Displays estimated delivery date based on customer location and FedEx transit times
+{% endcomment %}
+
+{% style %}
+  .delivery-estimate {
+    padding: {{ block.settings.padding }}px;
+    margin: {{ block.settings.margin }}px 0;
+    font-family: inherit;
+  }
+
+  .delivery-estimate__container {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .delivery-estimate__loading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: {{ block.settings.text_color }};
+  }
+
+  .delivery-estimate__loading-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid {{ block.settings.text_color }};
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: delivery-spin 1s linear infinite;
+  }
+
+  @keyframes delivery-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .delivery-estimate__main {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .delivery-estimate__date {
+    font-size: {{ block.settings.date_font_size }}px;
+    font-weight: {{ block.settings.date_font_weight }};
+    color: {{ block.settings.date_color }};
+    margin: 0;
+  }
+
+  .delivery-estimate__location {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: {{ block.settings.location_font_size }}px;
+    color: {{ block.settings.text_color }};
+  }
+
+  .delivery-estimate__location-icon {
+    font-size: 14px;
+  }
+
+  .delivery-estimate__location-link {
+    color: {{ block.settings.link_color }};
+    text-decoration: underline;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+  }
+
+  .delivery-estimate__location-link:hover {
+    text-decoration: none;
+  }
+
+  .delivery-estimate__change-form {
+    display: none;
+    margin-top: 8px;
+    padding: 12px;
+    background: {{ block.settings.form_background }};
+    border-radius: 4px;
+  }
+
+  .delivery-estimate__change-form.is-visible {
+    display: block;
+  }
+
+  .delivery-estimate__form-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+  }
+
+  .delivery-estimate__form-field {
+    flex: 1;
+  }
+
+  .delivery-estimate__form-label {
+    display: block;
+    font-size: 12px;
+    color: {{ block.settings.text_color }};
+    margin-bottom: 4px;
+  }
+
+  .delivery-estimate__form-input {
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-family: inherit;
+  }
+
+  .delivery-estimate__form-submit {
+    padding: 8px 16px;
+    font-size: 14px;
+    background: {{ block.settings.button_background }};
+    color: {{ block.settings.button_color }};
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .delivery-estimate__form-submit:hover {
+    opacity: 0.9;
+  }
+
+  .delivery-estimate__error {
+    color: #c41e3a;
+    font-size: 14px;
+    padding: 8px;
+    background: #fff0f0;
+    border-radius: 4px;
+  }
+
+  .delivery-estimate--hidden {
+    display: none;
+  }
+{% endstyle %}
+
+<div 
+  class="delivery-estimate" 
+  id="delivery-estimate-{{ block.id }}"
+  data-shop="{{ shop.permanent_domain }}"
+  data-app-url="{{ block.settings.app_url }}"
+>
+  <div class="delivery-estimate__container">
+    <!-- Loading State -->
+    <div class="delivery-estimate__loading" id="delivery-loading-{{ block.id }}">
+      <div class="delivery-estimate__loading-spinner"></div>
+      <span>{{ block.settings.loading_text }}</span>
+    </div>
+
+    <!-- Main Content (hidden until loaded) -->
+    <div class="delivery-estimate__main delivery-estimate--hidden" id="delivery-main-{{ block.id }}">
+      <p class="delivery-estimate__date" id="delivery-date-{{ block.id }}">
+        <!-- Populated by JavaScript -->
+      </p>
+      <div class="delivery-estimate__location">
+        <span class="delivery-estimate__location-icon">📦</span>
+        <span>{{ block.settings.deliver_to_text }}</span>
+        <button 
+          type="button" 
+          class="delivery-estimate__location-link" 
+          id="delivery-location-{{ block.id }}"
+          aria-expanded="false"
+          aria-controls="delivery-form-{{ block.id }}"
+        >
+          <!-- Populated by JavaScript -->
+        </button>
+      </div>
+    </div>
+
+    <!-- Change Location Form (hidden by default) -->
+    <div class="delivery-estimate__change-form" id="delivery-form-{{ block.id }}">
+      <div class="delivery-estimate__form-row">
+        <div class="delivery-estimate__form-field">
+          <label class="delivery-estimate__form-label" for="delivery-zip-{{ block.id }}">
+            {{ block.settings.zip_label }}
+          </label>
+          <input 
+            type="text" 
+            id="delivery-zip-{{ block.id }}" 
+            class="delivery-estimate__form-input"
+            placeholder="{{ block.settings.zip_placeholder }}"
+            maxlength="10"
+          >
+        </div>
+        <button 
+          type="button" 
+          class="delivery-estimate__form-submit" 
+          id="delivery-submit-{{ block.id }}"
+        >
+          {{ block.settings.update_button_text }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Error State (hidden by default) -->
+    <div class="delivery-estimate__error delivery-estimate--hidden" id="delivery-error-{{ block.id }}">
+      <!-- Error message populated by JavaScript -->
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const blockId = "{{ block.id }}";
+  const container = document.getElementById(`delivery-estimate-${blockId}`);
+  const loading = document.getElementById(`delivery-loading-${blockId}`);
+  const main = document.getElementById(`delivery-main-${blockId}`);
+  const dateEl = document.getElementById(`delivery-date-${blockId}`);
+  const locationEl = document.getElementById(`delivery-location-${blockId}`);
+  const form = document.getElementById(`delivery-form-${blockId}`);
+  const zipInput = document.getElementById(`delivery-zip-${blockId}`);
+  const submitBtn = document.getElementById(`delivery-submit-${blockId}`);
+  const errorEl = document.getElementById(`delivery-error-${blockId}`);
+
+  const shop = container.dataset.shop;
+  const appUrl = container.dataset.appUrl || "{{ block.settings.app_url }}";
+
+  // Cache key for localStorage
+  const cacheKey = `delivery_estimate_${shop}`;
+  const cacheDuration = 5 * 60 * 1000; // 5 minutes
+
+  function showLoading() {
+    loading.classList.remove("delivery-estimate--hidden");
+    main.classList.add("delivery-estimate--hidden");
+    errorEl.classList.add("delivery-estimate--hidden");
+  }
+
+  function showMain() {
+    loading.classList.add("delivery-estimate--hidden");
+    main.classList.remove("delivery-estimate--hidden");
+    errorEl.classList.add("delivery-estimate--hidden");
+  }
+
+  function showError(message) {
+    loading.classList.add("delivery-estimate--hidden");
+    main.classList.add("delivery-estimate--hidden");
+    errorEl.classList.remove("delivery-estimate--hidden");
+    errorEl.textContent = message || "{{ block.settings.error_text }}";
+  }
+
+  function updateDisplay(data) {
+    if (!data.success) {
+      showError(data.error);
+      return;
+    }
+
+    dateEl.textContent = data.displayText;
+    locationEl.textContent = data.location;
+    showMain();
+
+    // Save to cache
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify({
+        data: data,
+        timestamp: Date.now()
+      }));
+    } catch (e) {
+      // localStorage might not be available
+    }
+  }
+
+  async function fetchEstimate(postalCode = null) {
+    showLoading();
+
+    try {
+      let url = `${appUrl}/api/delivery-estimate?shop=${encodeURIComponent(shop)}`;
+      if (postalCode) {
+        url += `&postalCode=${encodeURIComponent(postalCode)}`;
+      }
+
+      const response = await fetch(url);
+      const data = await response.json();
+      updateDisplay(data);
+    } catch (error) {
+      console.error("Delivery estimate error:", error);
+      showError();
+    }
+  }
+
+  function loadFromCache() {
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < cacheDuration) {
+          updateDisplay(data);
+          return true;
+        }
+      }
+    } catch (e) {
+      // Cache read failed
+    }
+    return false;
+  }
+
+  // Toggle location change form
+  locationEl.addEventListener("click", function() {
+    const isVisible = form.classList.contains("is-visible");
+    form.classList.toggle("is-visible");
+    locationEl.setAttribute("aria-expanded", !isVisible);
+    
+    if (!isVisible) {
+      zipInput.focus();
+    }
+  });
+
+  // Handle form submission
+  submitBtn.addEventListener("click", function() {
+    const zip = zipInput.value.trim();
+    if (zip) {
+      // Clear cache when user changes location
+      try {
+        localStorage.removeItem(cacheKey);
+      } catch (e) {}
+      
+      form.classList.remove("is-visible");
+      locationEl.setAttribute("aria-expanded", "false");
+      fetchEstimate(zip);
+    }
+  });
+
+  // Handle enter key in zip input
+  zipInput.addEventListener("keypress", function(e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      submitBtn.click();
+    }
+  });
+
+  // Initialize
+  if (!loadFromCache()) {
+    fetchEstimate();
+  }
+})();
+</script>
+
+{% schema %}
+{
+  "name": "Estimated Delivery Date",
+  "target": "section",
+  "settings": [
+    {
+      "type": "header",
+      "content": "App Configuration"
+    },
+    {
+      "type": "text",
+      "id": "app_url",
+      "label": "App URL",
+      "info": "Your Shopify app URL (e.g., https://your-app.fly.dev)",
+      "default": "https://"
+    },
+    {
+      "type": "header",
+      "content": "Text Settings"
+    },
+    {
+      "type": "text",
+      "id": "loading_text",
+      "label": "Loading Text",
+      "default": "Calculating delivery date..."
+    },
+    {
+      "type": "text",
+      "id": "deliver_to_text",
+      "label": "Deliver To Text",
+      "default": "Deliver to"
+    },
+    {
+      "type": "text",
+      "id": "zip_label",
+      "label": "ZIP Code Label",
+      "default": "ZIP / Postal Code"
+    },
+    {
+      "type": "text",
+      "id": "zip_placeholder",
+      "label": "ZIP Code Placeholder",
+      "default": "Enter ZIP code"
+    },
+    {
+      "type": "text",
+      "id": "update_button_text",
+      "label": "Update Button Text",
+      "default": "Update"
+    },
+    {
+      "type": "text",
+      "id": "error_text",
+      "label": "Error Message",
+      "default": "Unable to calculate delivery date"
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "range",
+      "id": "date_font_size",
+      "label": "Delivery Date Font Size",
+      "min": 12,
+      "max": 24,
+      "step": 1,
+      "default": 16,
+      "unit": "px"
+    },
+    {
+      "type": "select",
+      "id": "date_font_weight",
+      "label": "Delivery Date Font Weight",
+      "options": [
+        { "value": "400", "label": "Normal" },
+        { "value": "500", "label": "Medium" },
+        { "value": "600", "label": "Semi-Bold" },
+        { "value": "700", "label": "Bold" }
+      ],
+      "default": "600"
+    },
+    {
+      "type": "range",
+      "id": "location_font_size",
+      "label": "Location Font Size",
+      "min": 10,
+      "max": 18,
+      "step": 1,
+      "default": 14,
+      "unit": "px"
+    },
+    {
+      "type": "header",
+      "content": "Colors"
+    },
+    {
+      "type": "color",
+      "id": "date_color",
+      "label": "Delivery Date Color",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text Color",
+      "default": "#666666"
+    },
+    {
+      "type": "color",
+      "id": "link_color",
+      "label": "Link Color",
+      "default": "#007bff"
+    },
+    {
+      "type": "color",
+      "id": "button_background",
+      "label": "Button Background",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "button_color",
+      "label": "Button Text Color",
+      "default": "#ffffff"
+    },
+    {
+      "type": "color",
+      "id": "form_background",
+      "label": "Form Background",
+      "default": "#f5f5f5"
+    },
+    {
+      "type": "header",
+      "content": "Spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding",
+      "label": "Padding",
+      "min": 0,
+      "max": 40,
+      "step": 4,
+      "default": 16,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "margin",
+      "label": "Vertical Margin",
+      "min": 0,
+      "max": 40,
+      "step": 4,
+      "default": 16,
+      "unit": "px"
+    }
+  ]
+}
+{% endschema %}
