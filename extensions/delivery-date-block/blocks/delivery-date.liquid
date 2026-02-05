@@ -5,9 +5,17 @@
 
 {% style %}
   .delivery-estimate {
-    padding: {{ block.settings.padding }}px;
+    padding: {{ block.settings.vertical_padding }}px {{ block.settings.horizontal_padding }}px;
     margin: {{ block.settings.margin }}px 0;
     font-family: inherit;
+    font-size: {{ block.settings.font_size }}px;
+    font-weight: {{ block.settings.font_weight }};
+    color: {{ block.settings.text_color }};
+    background-color: {{ block.settings.background_color }};
+    {% if block.settings.border_color.alpha > 0 %}
+      border: 1px solid {{ block.settings.border_color }};
+    {% endif %}
+    border-radius: {{ block.settings.border_radius }}px;
   }
 
   .delivery-estimate__container {
@@ -20,7 +28,6 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    color: {{ block.settings.text_color }};
   }
 
   .delivery-estimate__loading-spinner {
@@ -43,9 +50,7 @@
   }
 
   .delivery-estimate__date {
-    font-size: {{ block.settings.date_font_size }}px;
     font-weight: {{ block.settings.date_font_weight }};
-    color: {{ block.settings.date_color }};
     margin: 0;
   }
 
@@ -53,34 +58,39 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: {{ block.settings.location_font_size }}px;
-    color: {{ block.settings.text_color }};
   }
 
   .delivery-estimate__location-icon {
-    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    width: 16px;
+    height: 16px;
+  }
+
+  .delivery-estimate__location-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
   }
 
   .delivery-estimate__location-link {
-    color: {{ block.settings.link_color }};
     text-decoration: underline;
     cursor: pointer;
     background: none;
     border: none;
     padding: 0;
     font: inherit;
+    color: {{ block.settings.location_link_color }};
   }
 
   .delivery-estimate__location-link:hover {
     text-decoration: none;
+    color: {{ block.settings.location_link_hover_color }};
   }
 
   .delivery-estimate__change-form {
     display: none;
     margin-top: 8px;
-    padding: 12px;
-    background: {{ block.settings.form_background }};
-    border-radius: 4px;
   }
 
   .delivery-estimate__change-form.is-visible {
@@ -89,7 +99,7 @@
 
   .delivery-estimate__form-row {
     display: flex;
-    gap: 8px;
+    gap: 0;
     align-items: flex-end;
   }
 
@@ -100,7 +110,6 @@
   .delivery-estimate__form-label {
     display: block;
     font-size: 12px;
-    color: {{ block.settings.text_color }};
     margin-bottom: 4px;
   }
 
@@ -108,20 +117,25 @@
     width: 100%;
     padding: 8px 12px;
     font-size: 14px;
+    line-height: 1.5;
     border: 1px solid #ccc;
-    border-radius: 4px;
+    border-radius: 4px 0 0 4px;
     font-family: inherit;
+    box-sizing: border-box;
   }
 
   .delivery-estimate__form-submit {
     padding: 8px 16px;
     font-size: 14px;
+    line-height: 1.5;
     background: {{ block.settings.button_background }};
     color: {{ block.settings.button_color }};
-    border: none;
-    border-radius: 4px;
+    border: 1px solid {{ block.settings.button_background }};
+    border-radius: 0 4px 4px 0;
     cursor: pointer;
     font-family: inherit;
+    box-sizing: border-box;
+    white-space: nowrap;
   }
 
   .delivery-estimate__form-submit:hover {
@@ -141,11 +155,10 @@
   }
 {% endstyle %}
 
-<div 
-  class="delivery-estimate" 
+<div
+  class="delivery-estimate"
   id="delivery-estimate-{{ block.id }}"
   data-shop="{{ shop.permanent_domain }}"
-  data-app-url="{{ block.settings.app_url }}"
 >
   <div class="delivery-estimate__container">
     <!-- Loading State -->
@@ -156,21 +169,26 @@
 
     <!-- Main Content (hidden until loaded) -->
     <div class="delivery-estimate__main delivery-estimate--hidden" id="delivery-main-{{ block.id }}">
-      <p class="delivery-estimate__date" id="delivery-date-{{ block.id }}">
-        <!-- Populated by JavaScript -->
-      </p>
       <div class="delivery-estimate__location">
-        <span class="delivery-estimate__location-icon">📦</span>
+        <span class="delivery-estimate__location-icon">
+          {% if block.settings.icon %}
+            {{ block.settings.icon | image_url: width: 16, height: 16 | image_tag }}
+          {% endif %}
+        </span>
         <span>{{ block.settings.deliver_to_text }}</span>
-        <button 
-          type="button" 
-          class="delivery-estimate__location-link" 
+        <button
+          type="button"
+          class="delivery-estimate__location-link"
           id="delivery-location-{{ block.id }}"
           aria-expanded="false"
           aria-controls="delivery-form-{{ block.id }}"
         >
           <!-- Populated by JavaScript -->
         </button>
+        :
+        <span class="delivery-estimate__date" id="delivery-date-{{ block.id }}">
+          <!-- Populated by JavaScript -->
+        </span>
       </div>
     </div>
 
@@ -178,20 +196,17 @@
     <div class="delivery-estimate__change-form" id="delivery-form-{{ block.id }}">
       <div class="delivery-estimate__form-row">
         <div class="delivery-estimate__form-field">
-          <label class="delivery-estimate__form-label" for="delivery-zip-{{ block.id }}">
-            {{ block.settings.zip_label }}
-          </label>
-          <input 
-            type="text" 
-            id="delivery-zip-{{ block.id }}" 
+          <input
+            type="text"
+            id="delivery-zip-{{ block.id }}"
             class="delivery-estimate__form-input"
-            placeholder="{{ block.settings.zip_placeholder }}"
+            placeholder="Zip / Postal Code"
             maxlength="10"
           >
         </div>
-        <button 
-          type="button" 
-          class="delivery-estimate__form-submit" 
+        <button
+          type="button"
+          class="delivery-estimate__form-submit"
           id="delivery-submit-{{ block.id }}"
         >
           {{ block.settings.update_button_text }}
@@ -207,138 +222,121 @@
 </div>
 
 <script>
-(function() {
-  const blockId = "{{ block.id }}";
-  const container = document.getElementById(`delivery-estimate-${blockId}`);
-  const loading = document.getElementById(`delivery-loading-${blockId}`);
-  const main = document.getElementById(`delivery-main-${blockId}`);
-  const dateEl = document.getElementById(`delivery-date-${blockId}`);
-  const locationEl = document.getElementById(`delivery-location-${blockId}`);
-  const form = document.getElementById(`delivery-form-${blockId}`);
-  const zipInput = document.getElementById(`delivery-zip-${blockId}`);
-  const submitBtn = document.getElementById(`delivery-submit-${blockId}`);
-  const errorEl = document.getElementById(`delivery-error-${blockId}`);
+  (function () {
+    const blockId = '{{ block.id }}';
+    const container = document.getElementById(`delivery-estimate-${blockId}`);
+    const loading = document.getElementById(`delivery-loading-${blockId}`);
+    const main = document.getElementById(`delivery-main-${blockId}`);
+    const dateEl = document.getElementById(`delivery-date-${blockId}`);
+    const locationEl = document.getElementById(`delivery-location-${blockId}`);
+    const form = document.getElementById(`delivery-form-${blockId}`);
+    const zipInput = document.getElementById(`delivery-zip-${blockId}`);
+    const submitBtn = document.getElementById(`delivery-submit-${blockId}`);
+    const errorEl = document.getElementById(`delivery-error-${blockId}`);
 
-  const shop = container.dataset.shop;
-  const appUrl = container.dataset.appUrl || "{{ block.settings.app_url }}";
+    const shop = container.dataset.shop;
 
-  // Cache key for localStorage
-  const cacheKey = `delivery_estimate_${shop}`;
-  const cacheDuration = 5 * 60 * 1000; // 5 minutes
+    // Try to get app URL from Shopify context or use a configurable setting
+    // During dev, this needs to be your tunnel URL (e.g., https://xyz.trycloudflare.com)
+    let appUrl = '{{ block.settings.app_url | default: "" }}';
 
-  function showLoading() {
-    loading.classList.remove("delivery-estimate--hidden");
-    main.classList.add("delivery-estimate--hidden");
-    errorEl.classList.add("delivery-estimate--hidden");
-  }
-
-  function showMain() {
-    loading.classList.add("delivery-estimate--hidden");
-    main.classList.remove("delivery-estimate--hidden");
-    errorEl.classList.add("delivery-estimate--hidden");
-  }
-
-  function showError(message) {
-    loading.classList.add("delivery-estimate--hidden");
-    main.classList.add("delivery-estimate--hidden");
-    errorEl.classList.remove("delivery-estimate--hidden");
-    errorEl.textContent = message || "{{ block.settings.error_text }}";
-  }
-
-  function updateDisplay(data) {
-    if (!data.success) {
-      showError(data.error);
-      return;
+    // Fallback: try to detect from current page's app scripts
+    if (!appUrl) {
+      const appScript = document.querySelector('script[src*="trycloudflare.com"], script[src*=".fly.dev"]');
+      if (appScript) {
+        const match = appScript.src.match(/(https:\/\/[^\/]+)/);
+        if (match) appUrl = match[1];
+      }
     }
 
-    dateEl.textContent = data.displayText;
-    locationEl.textContent = data.location;
-    showMain();
-
-    // Save to cache
-    try {
-      localStorage.setItem(cacheKey, JSON.stringify({
-        data: data,
-        timestamp: Date.now()
-      }));
-    } catch (e) {
-      // localStorage might not be available
+    function showLoading() {
+      loading.classList.remove('delivery-estimate--hidden');
+      main.classList.add('delivery-estimate--hidden');
+      errorEl.classList.add('delivery-estimate--hidden');
     }
-  }
 
-  async function fetchEstimate(postalCode = null) {
-    showLoading();
+    function showMain() {
+      loading.classList.add('delivery-estimate--hidden');
+      main.classList.remove('delivery-estimate--hidden');
+      errorEl.classList.add('delivery-estimate--hidden');
+    }
 
-    try {
-      let url = `${appUrl}/api/delivery-estimate?shop=${encodeURIComponent(shop)}`;
-      if (postalCode) {
-        url += `&postalCode=${encodeURIComponent(postalCode)}`;
+    function showError(message) {
+      loading.classList.add('delivery-estimate--hidden');
+      main.classList.add('delivery-estimate--hidden');
+      errorEl.classList.remove('delivery-estimate--hidden');
+      errorEl.textContent = message || '{{ block.settings.error_text }}';
+    }
+
+    function updateDisplay(data) {
+      if (!data.success) {
+        showError(data.error);
+        return;
       }
 
-      const response = await fetch(url);
-      const data = await response.json();
-      updateDisplay(data);
-    } catch (error) {
-      console.error("Delivery estimate error:", error);
-      showError();
+      dateEl.textContent = data.displayText;
+      locationEl.textContent = data.location;
+      showMain();
     }
-  }
 
-  function loadFromCache() {
-    try {
-      const cached = localStorage.getItem(cacheKey);
-      if (cached) {
-        const { data, timestamp } = JSON.parse(cached);
-        if (Date.now() - timestamp < cacheDuration) {
-          updateDisplay(data);
-          return true;
-        }
+    async function fetchEstimate(postalCode = null) {
+      showLoading();
+
+      if (!appUrl) {
+        showError('App URL not configured. Please set it in the block settings or contact support.');
+        console.error('App URL not found. Please configure it in the theme customizer.');
+        return;
       }
-    } catch (e) {
-      // Cache read failed
-    }
-    return false;
-  }
 
-  // Toggle location change form
-  locationEl.addEventListener("click", function() {
-    const isVisible = form.classList.contains("is-visible");
-    form.classList.toggle("is-visible");
-    locationEl.setAttribute("aria-expanded", !isVisible);
-    
-    if (!isVisible) {
-      zipInput.focus();
-    }
-  });
-
-  // Handle form submission
-  submitBtn.addEventListener("click", function() {
-    const zip = zipInput.value.trim();
-    if (zip) {
-      // Clear cache when user changes location
       try {
-        localStorage.removeItem(cacheKey);
-      } catch (e) {}
-      
-      form.classList.remove("is-visible");
-      locationEl.setAttribute("aria-expanded", "false");
-      fetchEstimate(zip);
-    }
-  });
+        let url = `${appUrl}/api/delivery-estimate?shop=${encodeURIComponent(shop)}`;
+        if (postalCode) {
+          url += `&postalCode=${encodeURIComponent(postalCode)}`;
+        }
 
-  // Handle enter key in zip input
-  zipInput.addEventListener("keypress", function(e) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      submitBtn.click();
+        console.log('[Delivery Widget] Fetching estimate from:', url);
+        const response = await fetch(url);
+        const data = await response.json();
+        console.log('[Delivery Widget] Response:', data);
+        updateDisplay(data);
+      } catch (error) {
+        console.error('Delivery estimate error:', error);
+        showError();
+      }
     }
-  });
 
-  // Initialize
-  if (!loadFromCache()) {
+    // Toggle location change form
+    locationEl.addEventListener('click', function () {
+      const isVisible = form.classList.contains('is-visible');
+      form.classList.toggle('is-visible');
+      locationEl.setAttribute('aria-expanded', !isVisible);
+
+      if (!isVisible) {
+        zipInput.focus();
+      }
+    });
+
+    // Handle form submission
+    submitBtn.addEventListener('click', function () {
+      const zip = zipInput.value.trim();
+      if (zip) {
+        form.classList.remove('is-visible');
+        locationEl.setAttribute('aria-expanded', 'false');
+        fetchEstimate(zip);
+      }
+    });
+
+    // Handle enter key in zip input
+    zipInput.addEventListener('keypress', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        submitBtn.click();
+      }
+    });
+
+    // Initialize
     fetchEstimate();
-  }
-})();
+  })();
 </script>
 
 {% schema %}
@@ -354,8 +352,13 @@
       "type": "text",
       "id": "app_url",
       "label": "App URL",
-      "info": "Your Shopify app URL (e.g., https://your-app.fly.dev)",
-      "default": "https://"
+      "info": "Your app's URL (auto-detected in most cases, only set if widget doesn't work)",
+      "placeholder": "https://your-app-url.com"
+    },
+    {
+      "type": "image_picker",
+      "id": "icon",
+      "label": "Icon"
     },
     {
       "type": "header",
@@ -375,18 +378,6 @@
     },
     {
       "type": "text",
-      "id": "zip_label",
-      "label": "ZIP Code Label",
-      "default": "ZIP / Postal Code"
-    },
-    {
-      "type": "text",
-      "id": "zip_placeholder",
-      "label": "ZIP Code Placeholder",
-      "default": "Enter ZIP code"
-    },
-    {
-      "type": "text",
       "id": "update_button_text",
       "label": "Update Button Text",
       "default": "Update"
@@ -403,13 +394,25 @@
     },
     {
       "type": "range",
-      "id": "date_font_size",
-      "label": "Delivery Date Font Size",
-      "min": 12,
-      "max": 24,
+      "id": "font_size",
+      "label": "Font Size",
+      "min": 10,
+      "max": 16,
       "step": 1,
-      "default": 16,
+      "default": 14,
       "unit": "px"
+    },
+    {
+      "type": "select",
+      "id": "font_weight",
+      "label": "Font Weight",
+      "options": [
+        { "value": "400", "label": "Normal" },
+        { "value": "500", "label": "Medium" },
+        { "value": "600", "label": "Semi-Bold" },
+        { "value": "700", "label": "Bold" }
+      ],
+      "default": "400"
     },
     {
       "type": "select",
@@ -424,24 +427,30 @@
       "default": "600"
     },
     {
-      "type": "range",
-      "id": "location_font_size",
-      "label": "Location Font Size",
-      "min": 10,
-      "max": 18,
-      "step": 1,
-      "default": 14,
-      "unit": "px"
-    },
-    {
       "type": "header",
       "content": "Colors"
     },
     {
       "type": "color",
-      "id": "date_color",
-      "label": "Delivery Date Color",
-      "default": "#000000"
+      "id": "background_color",
+      "label": "Background Color",
+      "default": "#f5f5f5"
+    },
+    {
+      "type": "color",
+      "id": "border_color",
+      "label": "Border Color",
+      "default": "#dddddd"
+    },
+    {
+      "type": "range",
+      "id": "border_radius",
+      "label": "Border Radius",
+      "min": 0,
+      "max": 16,
+      "step": 1,
+      "default": 4,
+      "unit": "px"
     },
     {
       "type": "color",
@@ -451,9 +460,15 @@
     },
     {
       "type": "color",
-      "id": "link_color",
-      "label": "Link Color",
-      "default": "#007bff"
+      "id": "location_link_color",
+      "label": "Location Link Color",
+      "default": "#0000ee"
+    },
+    {
+      "type": "color",
+      "id": "location_link_hover_color",
+      "label": "Location Link Hover Color",
+      "default": "#551a8b"
     },
     {
       "type": "color",
@@ -468,21 +483,25 @@
       "default": "#ffffff"
     },
     {
-      "type": "color",
-      "id": "form_background",
-      "label": "Form Background",
-      "default": "#f5f5f5"
-    },
-    {
       "type": "header",
       "content": "Spacing"
     },
     {
       "type": "range",
-      "id": "padding",
+      "id": "vertical_padding",
       "label": "Padding",
       "min": 0,
-      "max": 40,
+      "max": 24,
+      "step": 4,
+      "default": 16,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "horizontal_padding",
+      "label": "Horizontal Padding",
+      "min": 0,
+      "max": 24,
       "step": 4,
       "default": 16,
       "unit": "px"
@@ -492,7 +511,7 @@
       "id": "margin",
       "label": "Vertical Margin",
       "min": 0,
-      "max": 40,
+      "max": 24,
       "step": 4,
       "default": 16,
       "unit": "px"

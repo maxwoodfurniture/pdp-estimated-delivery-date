@@ -5,7 +5,7 @@
 
 import prisma from '../db.server.js';
 import { createCarrier, CARRIERS, FEDEX_SERVICE_TYPES } from './carriers/index.js';
-import { getLocationFromIP, getDefaultLocation } from './geolocation.js';
+import { getLocationFromIP, getDefaultLocation, getLocationFromPostalCode } from './geolocation.js';
 
 /**
  * @typedef {Object} DeliveryEstimate
@@ -48,13 +48,19 @@ export async function getDeliveryEstimate(shop, customerIP, postalCode) {
     // Get customer location
     let destination;
     if (postalCode) {
-      // Use provided postal code
-      destination = {
-        postalCode,
-        city: '',
-        region: '',
-        countryCode: 'US',
-      };
+      // Look up city and state from postal code
+      destination = await getLocationFromPostalCode(postalCode);
+      
+      if (!destination) {
+        // If lookup fails, use just the postal code
+        console.warn(`Could not resolve location for postal code: ${postalCode}`);
+        destination = {
+          postalCode,
+          city: '',
+          region: '',
+          countryCode: 'US',
+        };
+      }
     } else {
       // Geolocate from IP
       destination = await getLocationFromIP(customerIP);
@@ -75,27 +81,49 @@ export async function getDeliveryEstimate(shop, customerIP, postalCode) {
     // Calculate ship date based on handling time and cutoff
     const shipDate = calculateShipDate(settings.handlingTimeDays, settings.cutoffTime);
 
-    // Create carrier and get transit time
-    const carrier = createCarrier(CARRIERS.FEDEX, {
-      apiKey: settings.fedexApiKey,
-      secretKey: settings.fedexSecretKey,
-      accountNumber: settings.fedexAccountNumber,
-    });
+    // Only try FedEx API if credentials are configured
+    let transitResult = null;
+    
+    if (settings.fedexApiKey && settings.fedexSecretKey && settings.fedexAccountNumber) {
+      try {
+        console.log('[Delivery Estimate] Using FedEx API (sandbox mode)');
+        
+        // Create carrier and get transit time (use sandbox by default for testing)
+        const carrier = createCarrier(CARRIERS.FEDEX, {
+          apiKey: settings.fedexApiKey,
+          secretKey: settings.fedexSecretKey,
+          accountNumber: settings.fedexAccountNumber,
+        }, true); // Use sandbox mode
 
-    const transitResult = await carrier.getTransitTime({
-      origin,
-      destination: {
-        city: destination.city,
-        state: destination.region,
-        postalCode: destination.postalCode,
-        countryCode: destination.countryCode,
-      },
-      shipDate,
-      serviceType: FEDEX_SERVICE_TYPES.GROUND,
-    });
+        transitResult = await carrier.getTransitTime({
+          origin,
+          destination: {
+            city: destination.city,
+            state: destination.region,
+            postalCode: destination.postalCode,
+            countryCode: destination.countryCode,
+          },
+          shipDate,
+          serviceType: FEDEX_SERVICE_TYPES.GROUND,
+        });
+        
+        if (transitResult.success) {
+          console.log('[Delivery Estimate] FedEx API succeeded:', {
+            transitDays: transitResult.transitDays,
+            deliveryDate: transitResult.deliveryDateMin
+          });
+        }
+      } catch (error) {
+        console.warn('[Delivery Estimate] FedEx API error, using fallback:', error.message);
+        transitResult = { success: false };
+      }
+    } else {
+      console.log('[Delivery Estimate] FedEx credentials not configured, using fallback');
+    }
 
-    if (!transitResult.success) {
+    if (!transitResult || !transitResult.success) {
       // Try fallback estimate based on distance zones
+      console.log('[Delivery Estimate] Using fallback zone-based estimation');
       return generateFallbackEstimate(origin, destination, shipDate, settings);
     }
 
@@ -283,17 +311,13 @@ function formatTransitDays(days) {
  * e.g., "Summerville, United States"
  */
 function formatLocation(location) {
-  const countryNames = {
-    US: 'United States',
-    CA: 'Canada',
-    MX: 'Mexico',
-  };
-  
-  const country = countryNames[location.countryCode] || location.countryCode;
-  
-  if (location.city) {
-    return `${location.city}, ${country}`;
+  if (location.city && location.region) {
+    return `${location.city}, ${location.region}`;
   }
   
-  return country;
+  if (location.city) {
+    return location.city;
+  }
+  
+  return location.region || location.countryCode;
 }

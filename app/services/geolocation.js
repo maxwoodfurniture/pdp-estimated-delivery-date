@@ -20,12 +20,12 @@
 const GEOLOCATION_SERVICES = [
   {
     name: 'ip-api',
-    url: (ip) => `http://ip-api.com/json/${ip || ''}?fields=status,city,regionCode,zip,countryCode,lat,lon`,
+    url: (ip) => `http://ip-api.com/json/${ip || ''}?fields=status,city,region,zip,countryCode,lat,lon`,
     parse: (data) => {
       if (data.status !== 'success') return null;
       return {
         city: data.city,
-        region: data.regionCode,
+        region: data.region,
         postalCode: data.zip,
         countryCode: data.countryCode,
         latitude: data.lat,
@@ -209,4 +209,56 @@ export function getDefaultLocation() {
     countryCode: 'US',
     source: 'default',
   };
+}
+
+/**
+ * Look up city and state from a US postal code
+ * Uses the free ZipCodeAPI service
+ * 
+ * @param {string} postalCode - US ZIP code
+ * @returns {Promise<GeoLocation|null>}
+ */
+export async function getLocationFromPostalCode(postalCode) {
+  if (!postalCode) return null;
+  
+  // Clean the postal code (remove spaces, dashes, etc.)
+  const cleanZip = postalCode.replace(/[^0-9]/g, '').substring(0, 5);
+  
+  if (cleanZip.length !== 5) {
+    console.warn(`Invalid postal code format: ${postalCode}`);
+    return null;
+  }
+  
+  try {
+    // Try zippopotam.us (free, no API key required)
+    const response = await fetch(`https://api.zippopotam.us/us/${cleanZip}`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    
+    if (!response.ok) {
+      console.warn(`Postal code lookup failed with status ${response.status}`);
+      return null;
+    }
+    
+    const data = await response.json();
+    
+    if (!data.places || data.places.length === 0) {
+      return null;
+    }
+    
+    const place = data.places[0];
+    
+    return {
+      city: place['place name'],
+      region: place['state abbreviation'],
+      postalCode: cleanZip,
+      countryCode: data['country abbreviation'],
+      latitude: parseFloat(place.latitude),
+      longitude: parseFloat(place.longitude),
+      source: 'postal-code-lookup',
+    };
+  } catch (error) {
+    console.warn(`Postal code lookup failed for ${cleanZip}:`, error.message);
+    return null;
+  }
 }

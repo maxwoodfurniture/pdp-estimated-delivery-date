@@ -8,6 +8,15 @@
 import { getDeliveryEstimate } from "../services/delivery-estimate.js";
 import { getClientIP } from "../services/geolocation.js";
 
+// CORS headers - always included in responses
+const getCorsHeaders = () => ({
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+  "Content-Type": "application/json",
+  "Cache-Control": "public, max-age=300", // Cache for 5 minutes
+});
+
 /**
  * Handle GET request for delivery estimate
  * Query params:
@@ -15,14 +24,7 @@ import { getClientIP } from "../services/geolocation.js";
  *   - postalCode: Override postal code (optional)
  */
 export const loader = async ({ request }) => {
-  // Set CORS headers for storefront access
-  const headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Content-Type": "application/json",
-    "Cache-Control": "public, max-age=300", // Cache for 5 minutes
-  };
+  const headers = getCorsHeaders();
 
   // Handle preflight
   if (request.method === "OPTIONS") {
@@ -43,19 +45,24 @@ export const loader = async ({ request }) => {
 
     // Get client IP for geolocation
     const clientIP = getClientIP(request);
+    
+    console.log(`[Delivery Estimate] Request from shop: ${shop}, IP: ${clientIP || 'unknown'}`);
 
     // Get delivery estimate
     const estimate = await getDeliveryEstimate(shop, clientIP, postalCode);
 
     return new Response(JSON.stringify(estimate), {
-      status: estimate.success ? 200 : 400,
+      status: estimate.success ? 200 : 200, // Always return 200 to avoid CORS issues
       headers,
     });
   } catch (error) {
     console.error("Delivery estimate API error:", error);
     return new Response(
-      JSON.stringify({ success: false, error: "Internal server error" }),
-      { status: 500, headers }
+      JSON.stringify({ 
+        success: false, 
+        error: "Unable to calculate delivery estimate. Please try again later." 
+      }),
+      { status: 200, headers } // Return 200 with error message to avoid CORS issues
     );
   }
 };
@@ -69,12 +76,7 @@ export const loader = async ({ request }) => {
  *   - state: Customer state (optional)
  */
 export const action = async ({ request }) => {
-  const headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Content-Type": "application/json",
-  };
+  const headers = getCorsHeaders();
 
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204, headers });
@@ -98,14 +100,17 @@ export const action = async ({ request }) => {
     const estimate = await getDeliveryEstimate(shop, clientIP, postalCode);
 
     return new Response(JSON.stringify(estimate), {
-      status: estimate.success ? 200 : 400,
+      status: 200,
       headers,
     });
   } catch (error) {
     console.error("Delivery estimate API error:", error);
     return new Response(
-      JSON.stringify({ success: false, error: "Internal server error" }),
-      { status: 500, headers }
+      JSON.stringify({ 
+        success: false, 
+        error: "Unable to calculate delivery estimate. Please try again later." 
+      }),
+      { status: 200, headers }
     );
   }
 };
