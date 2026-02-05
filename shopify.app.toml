@@ -2,7 +2,7 @@
 
 client_id = "1b412ca3dc78f5b49915d8fe94bc3b69"
 name = "PDP Estimated Delivery Date"
-application_url = "https://example.com"
+application_url = "https://shopify-pdp-edd-app.azurewebsites.net"
 embedded = true
 
 [build]
