@@ -234,7 +234,7 @@
           class="delivery-estimate__form-submit"
           id="delivery-submit-{{ block.id }}"
         >
-          {{ block.settings.update_button_text }}
+          Submit
         </button>
       </div>
     </div>
@@ -290,7 +290,7 @@
       loading.classList.add('delivery-estimate--hidden');
       main.classList.add('delivery-estimate--hidden');
       errorEl.classList.remove('delivery-estimate--hidden');
-      errorEl.textContent = message || '{{ block.settings.error_text }}';
+      errorEl.textContent = message || 'Unable to calculate delivery date';
     }
 
     function updateDisplay(data) {
@@ -402,18 +402,6 @@
       "default": "Deliver to"
     },
     {
-      "type": "text",
-      "id": "update_button_text",
-      "label": "Update Button Text",
-      "default": "Update"
-    },
-    {
-      "type": "text",
-      "id": "error_text",
-      "label": "Error Message",
-      "default": "Unable to calculate delivery date"
-    },
-    {
       "type": "header",
       "content": "Typography"
     },
@@ -514,7 +502,7 @@
     {
       "type": "range",
       "id": "vertical_padding",
-      "label": "Padding",
+      "label": "Vertical Padding",
       "min": 0,
       "max": 24,
       "step": 4,
