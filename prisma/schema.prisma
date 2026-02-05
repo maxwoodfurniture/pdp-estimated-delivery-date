@@ -47,6 +47,7 @@ model AppSettings {
   
   // Handling/Processing Time
   handlingTimeDays      Int      @default(1)
+  processingDays        String   @default("1,2,3,4,5") // Comma-separated day numbers: 0=Sun, 1=Mon, etc
   cutoffTime            String   @default("14:00") // 24hr format, orders after this ship next day
   
   // Carrier API Credentials (encrypted in production)

@@ -78,8 +78,8 @@ export async function getDeliveryEstimate(shop, customerIP, postalCode) {
       countryCode: settings.warehouseCountryCode,
     };
 
-    // Calculate ship date based on handling time and cutoff
-    const shipDate = calculateShipDate(settings.handlingTimeDays, settings.cutoffTime);
+    // Calculate ship date based on handling time, cutoff, and processing days
+    const shipDate = calculateShipDate(settings.handlingTimeDays, settings.cutoffTime, settings.processingDays);
 
     // Only try FedEx API if credentials are configured
     let transitResult = null;
@@ -180,9 +180,20 @@ export async function saveAppSettings(shop, data) {
 }
 
 /**
- * Calculate the ship date based on handling time and cutoff
+ * Calculate the ship date based on handling time, cutoff, and processing days
  */
-function calculateShipDate(handlingDays, cutoffTime) {
+function calculateShipDate(handlingDays, cutoffTime, processingDaysStr = '1,2,3,4,5') {
+  // Parse processing days (0=Sun, 1=Mon, ..., 6=Sat)
+  const processingDays = processingDaysStr
+    .split(',')
+    .map(d => parseInt(d, 10))
+    .filter(d => !isNaN(d) && d >= 0 && d <= 6);
+  
+  // Default to Mon-Fri if empty
+  if (processingDays.length === 0) {
+    processingDays.push(1, 2, 3, 4, 5);
+  }
+  
   const now = new Date();
   const [cutoffHour, cutoffMinute] = cutoffTime.split(':').map(Number);
   
@@ -198,18 +209,23 @@ function calculateShipDate(handlingDays, cutoffTime) {
     shipDate.setDate(shipDate.getDate() + 1);
   }
   
-  // Add handling days (skip weekends)
+  // Move to next processing day if current day is not a processing day
+  while (!processingDays.includes(shipDate.getDay())) {
+    shipDate.setDate(shipDate.getDate() + 1);
+  }
+  
+  // Add handling days (only count processing days)
   let daysAdded = 0;
   while (daysAdded < handlingDays) {
     shipDate.setDate(shipDate.getDate() + 1);
-    // Skip weekends
-    if (shipDate.getDay() !== 0 && shipDate.getDay() !== 6) {
+    // Only count processing days
+    if (processingDays.includes(shipDate.getDay())) {
       daysAdded++;
     }
   }
   
-  // If ship date falls on weekend, move to Monday
-  while (shipDate.getDay() === 0 || shipDate.getDay() === 6) {
+  // If ship date falls on non-processing day, move to next processing day
+  while (!processingDays.includes(shipDate.getDay())) {
     shipDate.setDate(shipDate.getDate() + 1);
   }
   

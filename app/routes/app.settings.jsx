@@ -12,24 +12,39 @@ import { getAppSettings, saveAppSettings } from "../services/delivery-estimate.j
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
-  const settings = await getAppSettings(session.shop);
+  const savedSettings = await getAppSettings(session.shop);
+  
+  // Parse processingDays from comma-separated string
+  let processingDays = [1, 2, 3, 4, 5]; // Default Mon-Fri
+  if (savedSettings?.processingDays) {
+    processingDays = savedSettings.processingDays
+      .split(",")
+      .map(Number)
+      .filter(n => !isNaN(n) && n >= 0 && n <= 6);
+  }
+  
+  const settings = savedSettings ? {
+    ...savedSettings,
+    processingDays,
+  } : {
+    warehouseCity: "",
+    warehouseState: "",
+    warehousePostalCode: "",
+    warehouseCountryCode: "US",
+    warehouseStreet: "",
+    handlingTimeDays: 1,
+    processingDays: [1, 2, 3, 4, 5],
+    cutoffTime: "14:00",
+    fedexApiKey: "",
+    fedexSecretKey: "",
+    fedexAccountNumber: "",
+    isEnabled: true,
+    showExactDates: true,
+  };
   
   return {
-    settings: settings || {
-      warehouseCity: "",
-      warehouseState: "",
-      warehousePostalCode: "",
-      warehouseCountryCode: "US",
-      warehouseStreet: "",
-      handlingTimeDays: 1,
-      cutoffTime: "14:00",
-      fedexApiKey: "",
-      fedexSecretKey: "",
-      fedexAccountNumber: "",
-      isEnabled: true,
-      showExactDates: true,
-    },
-    hasCredentials: !!(settings?.fedexApiKey && settings?.fedexSecretKey),
+    settings,
+    hasCredentials: !!(savedSettings?.fedexApiKey && savedSettings?.fedexSecretKey),
   };
 };
 
@@ -46,6 +61,9 @@ export const action = async ({ request }) => {
       warehousePostalCode: formData.get("warehousePostalCode"),
       warehouseCountryCode: formData.get("warehouseCountryCode") || "US",
       handlingTimeDays: parseInt(formData.get("handlingTimeDays") || "1", 10),
+      processingDays: Array.from({ length: 7 }, (_, i) => 
+        formData.get(`processingDay${i}`) ? String(i) : null
+      ).filter(Boolean).join(",") || "1,2,3,4,5",
       cutoffTime: formData.get("cutoffTime") || "14:00",
       fedexApiKey: formData.get("fedexApiKey") || null,
       fedexSecretKey: formData.get("fedexSecretKey") || null,
@@ -83,9 +101,18 @@ export default function Settings() {
   const handleSubmit = () => {
     const data = new FormData();
     data.append("intent", "save");
+    
     Object.entries(formData).forEach(([key, value]) => {
-      data.append(key, String(value ?? ""));
+      if (key === "processingDays" && Array.isArray(value)) {
+        // Handle processingDays array specially
+        value.forEach((day) => {
+          data.append(`processingDay${day}`, "on");
+        });
+      } else {
+        data.append(key, String(value ?? ""));
+      }
     });
+    
     fetcher.submit(data, { method: "POST" });
   };
 
@@ -182,6 +209,31 @@ export default function Settings() {
                 helpText="Orders after this time ship the next business day"
               />
             </s-stack>
+
+            {/* Processing Days Checkboxes */}
+            <div style={{ marginTop: '12px' }}>
+              <s-paragraph style={{ marginBottom: '8px' }}>
+                <strong>Days Your Facility Processes Orders</strong>
+              </s-paragraph>
+              <s-stack direction="inline" gap="base" wrap="wrap">
+                {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day, index) => (
+                  <label key={index} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <input
+                      type="checkbox"
+                      name={`processingDay${index}`}
+                      checked={formData.processingDays?.includes(index) || false}
+                      onChange={(e) => {
+                        const newDays = e.target.checked
+                          ? [...(formData.processingDays || []), index].sort((a, b) => a - b)
+                          : (formData.processingDays || []).filter(d => d !== index);
+                        handleChange("processingDays", newDays);
+                      }}
+                    />
+                    <span>{day}</span>
+                  </label>
+                ))}
+              </s-stack>
+            </div>
           </s-stack>
         </s-box>
       </s-section>
