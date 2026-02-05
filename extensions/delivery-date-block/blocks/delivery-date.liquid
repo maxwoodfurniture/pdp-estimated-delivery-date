@@ -261,18 +261,8 @@
 
     const shop = container.dataset.shop;
 
-    // Try to get app URL from Shopify context or use a configurable setting
-    // During dev, this needs to be your tunnel URL (e.g., https://xyz.trycloudflare.com)
-    let appUrl = '{{ block.settings.app_url | default: "" }}';
-
-    // Fallback: try to detect from current page's app scripts
-    if (!appUrl) {
-      const appScript = document.querySelector('script[src*="trycloudflare.com"], script[src*=".fly.dev"]');
-      if (appScript) {
-        const match = appScript.src.match(/(https:\/\/[^\/]+)/);
-        if (match) appUrl = match[1];
-      }
-    }
+    // Hardcoded URL detection: tunnel in dev, app proxy in production
+    const appUrl = 'https://sand-lisa-selections-cluster.trycloudflare.com'; // Your tunnel URL - update this when it changes
 
     function showLoading() {
       loading.classList.remove('delivery-estimate--hidden');
@@ -306,12 +296,6 @@
 
     async function fetchEstimate(postalCode = null) {
       showLoading();
-
-      if (!appUrl) {
-        showError('App URL not configured. Please set it in the block settings or contact support.');
-        console.error('App URL not found. Please configure it in the theme customizer.');
-        return;
-      }
 
       try {
         let url = `${appUrl}/api/delivery-estimate?shop=${encodeURIComponent(shop)}`;
@@ -371,14 +355,7 @@
   "settings": [
     {
       "type": "header",
-      "content": "App Configuration"
-    },
-    {
-      "type": "text",
-      "id": "app_url",
-      "label": "App URL",
-      "info": "Your app's URL (auto-detected in most cases, only set if widget doesn't work)",
-      "placeholder": "https://your-app-url.com"
+      "content": "Appearance"
     },
     {
       "type": "image_picker",

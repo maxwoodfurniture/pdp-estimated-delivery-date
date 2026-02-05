@@ -28,3 +28,8 @@ use_legacy_install_flow = false
 
 [auth]
 redirect_urls = [ ]
+
+[app_proxy]
+url = "/apps/delivery"
+subpath = "delivery"
+prefix = "apps"
